@@ -544,7 +544,7 @@
         method: "GET",
         headers: {
           "x-rapidapi-key":
-            "1a23d5e762mshc6bdd66106811a0p1f4639jsn258336f3b440",
+            "bc6ccbe47cmshf58931fa02c5713p1c1166jsnf7e6f4c5e38c",
           "x-rapidapi-host": "imdb236.p.rapidapi.com",
         },
       };
@@ -595,44 +595,68 @@
       }
 
       // Function to fetch latest movies from API
+      const CACHE_KEY = "imdbMoviesCache";
+      const CACHE_TTL = 12 * 60 * 60 * 1000; // 12 hours in milliseconds
+
       async function fetchLatestMovies() {
+        movieGrid.innerHTML = `
+    <div class="loading">
+      <div class="spinner"></div>
+      <p>Loading movies from IMDb...</p>
+    </div>
+  `;
+
         try {
-          movieGrid.innerHTML = `
-          <div class="loading">
-            <div class="spinner"></div>
-            <p>Loading movies from IMDb...</p>
-          </div>
-        `;
+          // 1. Try to load from cache
+          const cached = localStorage.getItem(CACHE_KEY);
+          if (cached) {
+            const { timestamp, data } = JSON.parse(cached);
+            const age = Date.now() - timestamp;
+            if (age < CACHE_TTL && Array.isArray(data)) {
+              console.log("Using cached data, age:", age);
+              allMovies = data.map(processMovieData);
+              return displayMovies();
+            } else {
+              // stale cache, remove it
+              localStorage.removeItem(CACHE_KEY);
+            }
+          }
 
+          // 2. No valid cache → fetch from API
           const response = await fetch(API_URL, API_OPTIONS);
-
           if (!response.ok) {
             throw new Error(`API error: ${response.status}`);
           }
-
           const data = await response.json();
-          console.log(data, "---------server"); // or use this data in your app
-
-          if (!data || !Array.isArray(data)) {
+          if (!Array.isArray(data)) {
             throw new Error("Invalid API response format");
           }
 
-          // Process the movie data
+          // 3. Store fresh data in cache with timestamp
+          localStorage.setItem(
+            CACHE_KEY,
+            JSON.stringify({
+              timestamp: Date.now(),
+              data,
+            })
+          );
+
+          console.log("Fetched fresh data");
           allMovies = data.map(processMovieData);
           displayMovies();
         } catch (error) {
           console.error("Error fetching movies:", error);
           movieGrid.innerHTML = `
-          <div style="grid-column:1/-1; text-align:center; padding:2rem; color:#ef4444">
-            <i class="fas fa-exclamation-triangle" style="font-size:3rem; margin-bottom:1rem;"></i>
-            <h3>Failed to load movies</h3>
-            <p>${error.message || "Please try again later"}</p>
-            <button class="btn btn-primary" style="margin-top:1rem;" onclick="fetchLatestMovies()">
-              <i class="fas fa-sync-alt"></i>
-              Retry
-            </button>
-          </div>
-        `;
+      <div style="grid-column:1/-1; text-align:center; padding:2rem; color:#ef4444">
+        <i class="fas fa-exclamation-triangle" style="font-size:3rem; margin-bottom:1rem;"></i>
+        <h3>Failed to load movies</h3>
+        <p>${error.message || "Please try again later"}</p>
+        <button class="btn btn-primary" style="margin-top:1rem;" onclick="fetchLatestMovies()">
+          <i class="fas fa-sync-alt"></i>
+          Retry
+        </button>
+      </div>
+    `;
         }
       }
 
