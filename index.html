@@ -528,7 +528,60 @@
     </footer>
 
     <script>
+      function slugify(text) {
+        return String(text)
+          .toLowerCase()
+          .trim()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/(^-|-$)+/g, "");
+      }
+
+      function generateSitemapXml() {
+        const cache = localStorage.getItem("imdbMoviesCache");
+        if (!cache) {
+          console.error("No cached movies found in localStorage.");
+          return "";
+        }
+
+        const { data } = JSON.parse(cache);
+        if (!Array.isArray(data)) {
+          console.error("Cached data is not an array.");
+          return "";
+        }
+
+        const baseUrl = "https://moviesflix.rent/Movies";
+
+        const urls = data.map((movie) => {
+          const slug = slugify(
+            movie.primaryTitle || movie.originalTitle || movie.id
+          );
+          return `
+  <url>
+    <loc>${baseUrl}/${slug}.html</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>`;
+        });
+
+        const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${urls.join("\n")}
+</urlset>`;
+
+        return sitemap;
+      }
+
+      function downloadSitemap() {
+        const xml = generateSitemapXml();
+        const blob = new Blob([xml], { type: "application/xml" });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = "sitemap.xml";
+        link.click();
+      }
       // API configuration
+      downloadSitemap();
+
       function slugify(title) {
         return String(title)
           .toLowerCase()
